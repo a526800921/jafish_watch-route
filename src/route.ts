@@ -1,5 +1,6 @@
 /// <reference path="./index.d.ts" />
 
+import { isNumber, isUndefined } from '@jafish/utils'
 import {
     initStorage,
     addPageForward,
@@ -17,6 +18,7 @@ import {
 
 const isObject = obj => Object.prototype.toString.call(obj) === '[object Object]'
 const joinPath = (obj: Jafish_WatchRoute.JoinPathData): string => `${obj.pathname}${obj.search}${obj.hash}`
+const noHistoryStateID = (target: Jafish_WatchRoute.PageStack): boolean => isUndefined(target.data.historyStateID)
 
 // 前进路线增加，并添加数据
 const addPageForwardUnify = () => addPageForward(getCurrentPage())
@@ -119,33 +121,33 @@ export default function init() {
             // hash 操作只能一次一层，故只需要与前进路线做匹配就可以得到具体位置
             // hash 没有更改时会触发 popstate 但是页面历史无新增
             // location.href = location.href 在有 hash 时页面无刷新操作，在无 hash 时页面会刷新页面等同 location.reload
-            const { hash } = window.location
+            const fillPath = joinPath(window.location)
             const pageStack = getPageStack()
             const currentIndex = getCurrentIndex()
             const currentPage = pageStack[currentIndex]
             const prevPage = pageStack[currentIndex - 1]
             const nextPage = pageStack[currentIndex + 1]
 
-            // 当前 hash 与记录中当前页面的 hash 相同，代表 location.href = location.href
-            if (hash === currentPage.hash) {
+            // 当前 href 与记录中当前页面的 href 相同，且带有 hash 代表 location.href = location.href
+            if (noHistoryStateID(currentPage) && fillPath === joinPath(currentPage)) {
                 // 页面无新增，不处理
             }
-            // 当前 hash 与记录中当前页面的上一个页面 hash 相同，代表用户返回
-            // 返回到第一次进入的页面也可通过 hash 判断， hash 都为 '' 也能全等于
-            else if (prevPage && hash === prevPage.hash) {
+            // 当前 href 与记录中当前页面的上一个页面 href 相同，代表用户返回
+            // 返回到第一次进入的页面也可通过 href 判断
+            else if (prevPage && noHistoryStateID(prevPage) && fillPath === joinPath(prevPage)) {
                 // 前进路线增加
                 addPageForward(currentPage)
                 // 页面栈后退
                 backPageStack()
             }
-            // 当前 hash 与记录中当前页面的下一个页面 hash 相同，可以认为是前进（当再次前进时如果 hash 不匹配则会认为是新增，对新增 hash 与前进 hash 相同时无影响）
-            else if (nextPage && hash === nextPage.hash) {
+            // 当前 href 与记录中当前页面的下一个页面 href 相同，可以认为是前进（当再次前进时如果 href 不匹配则会认为是新增）
+            else if (nextPage && noHistoryStateID(nextPage) && fillPath === joinPath(nextPage)) {
                 // 前进路线增加
                 addPageForward(currentPage)
                 // 页面栈前进
                 forwardPageStack()
             }
-            // 当前 hash 与记录中 hash 都没有匹配上，表示用户前进了一个页面
+            // 当前 href 与记录中 href 都没有匹配上，表示用户前进了一个页面
             else {
                 // 前进路线增加
                 addPageForward(currentPage)
@@ -160,7 +162,7 @@ export default function init() {
             // 通过 history 生成时，与历史记录做匹配，判断所在位置
             const pageStack = getPageStack()
             const nextIndex = pageStack.findIndex(item => (item.data || {}).historyStateID === historyStateID)
-            const currentIndex = pageStack.findIndex(item => item.isCurrent)
+            const currentIndex = getCurrentIndex()
 
             // 一般不会出现
             if (nextIndex === -1 || currentIndex === -1) return
@@ -197,7 +199,7 @@ export default function init() {
 
             // 当前页面为 history 跳转的页面
             // 则直接将匹配页面作为当前页面
-            if (state && state.watchRouteID !== void 0) {
+            if (state && isNumber(state.watchRouteID)) {
                 const nextIndex = pageStack.findIndex(item => item.data.historyStateID === state.watchRouteID)
 
                 // 这种情况一般不会存在
@@ -211,18 +213,18 @@ export default function init() {
             else {
                 // 先判断是否为刷新
                 // 与当前页做全判断
-                if (fillPath === joinPath(currentPage)) {
+                if (noHistoryStateID(currentPage) && fillPath === joinPath(currentPage)) {
                     // 刷新页面，不做处理
                 }
                 // 判断是否为返回
-                else if (prevPage && fillPath === joinPath(prevPage)) {
+                else if (prevPage && noHistoryStateID(prevPage) && fillPath === joinPath(prevPage)) {
                     // 前进路线增加
                     addPageForward(currentPage)
                     // 页面栈后退
                     backPageStack()
                 }
                 // 判断是否为前进
-                else if (nextPage && fillPath === joinPath(nextPage)) {
+                else if (nextPage && noHistoryStateID(nextPage) && fillPath === joinPath(nextPage)) {
                     // 前进路线增加
                     addPageForward(currentPage)
                     // 页面栈前进
@@ -234,7 +236,7 @@ export default function init() {
                     // 将记录的当前位置的前三个到后三个全部进行匹配，超出3次的 replace 不做处理
                     const cut: number = 3
                     const pageStackCut = pageStack.slice(currentIndex - cut, currentIndex + cut)
-                    const findPage = pageStackCut.find(item => fillPath === joinPath(item))
+                    const findPage = pageStackCut.find(item => noHistoryStateID(item) && fillPath === joinPath(item))
 
                     // 如果找到了，则需要移除记录的当前位置到查找到的位置中间的记录 [a, b, c] -> [a, c]
                     if (findPage) {

@@ -15,36 +15,28 @@
 ### 使用
 
 ```js
-import { 
-    initWatchRoute, 
-    routeChange, 
-    getPageForward, 
-    getPageStack, 
-    getCurrentPage,
-    updatePageStackOtherData,
-    getCurrentPageOtherData,
-} from '@jafish/watch-route'
+import * as watchRoute from '@jafish/watch-route'
 
 // 初始化
-initWatchRoute()
+watchRoute.initWatchRoute()
 
 // 监听路由改变
-routeChange((newPage, oldPage) => {
+watchRoute.routeChange((newPage, oldPage) => {
     console.log(newPage.pathname)
     console.log(oldPage.pathname)
 })
 
 // 获取页面前进路线，最大缓存20条
-getPageForward()
+watchRoute.getPageForward()
 
 // 获取页面栈
-getPageStack()
+watchRoute.getPageStack()
 
 // 获取当前页面信息
-getCurrentPage()
+watchRoute.getCurrentPage()
 
 // 更新当前页面的 otherData
-updatePageStackOtherData('<onlyKey>', (): any => {
+watchRoute.updatePageStackOtherData('<onlyKey>', (): any => {
 
     return {
         aaa: 1
@@ -52,10 +44,10 @@ updatePageStackOtherData('<onlyKey>', (): any => {
 })
 
 // 获取当前页面所有的 otherData
-getCurrentPageOtherData(getCurrentPage())
+watchRoute.getCurrentPageOtherData(getCurrentPage())
 
 // 获取当前页面指定key的 otherData
-getCurrentPageOtherData(getCurrentPage(), '<onlyKey>')
+watchRoute.getCurrentPageOtherData(getCurrentPage(), '<onlyKey>')
 ```
 
 

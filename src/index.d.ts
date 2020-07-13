@@ -6,6 +6,9 @@ declare namespace Jafish_WatchRoute {
     // 页面附加参数
     type OtherData = () => any 
 
+    // 页面位置
+    type PagePosition = number
+
     // history所用id
     type HistoryStateID = number
 
@@ -30,7 +33,6 @@ declare namespace Jafish_WatchRoute {
         hash: string
         search: string
         data: PageData
-        isCurrent: boolean
         otherData: {
             [key: string]: OtherData
         }

@@ -6,6 +6,7 @@ const createKey = (key: string): string => `watch-route/${key}`
 
 const pageForwardKey: string = createKey('PAGE_FORWARD')
 const pageStackKey: string = createKey('PAGE_STACK')
+const pagePositionKey: string = createKey('PAGE_POSITION')
 const historyStateIDKey: string = createKey('HISTORY_STATE_ID')
 
 // 应该有个页面前进路线 
@@ -13,6 +14,8 @@ const historyStateIDKey: string = createKey('HISTORY_STATE_ID')
 const pageForward: Jafish_WatchRoute.PageForward[] = []
 // 还有一个页面栈
 const pageStack: Jafish_WatchRoute.PageStack[] = []
+// 当前页面位置（将位置独立，因页面栈分组缓存）
+let pagePosition: Jafish_WatchRoute.PagePosition = -1
 // 以及用于记录的 history state 参数
 let historyStateID: Jafish_WatchRoute.HistoryStateID = 1
 
@@ -29,11 +32,11 @@ export const initStorage = () => {
         let stack: Jafish_WatchRoute.PageStack[] = []
         let isEnd = false
         let count = 0
-    
+
         while (!isEnd) {
             // 分组获取，直到没有
             const items = getItemUseSession(`${pageStackKey}/${count}`)
-    
+
             if (items && items.length > 0) {
                 stack = stack.concat(items)
                 count++
@@ -42,11 +45,23 @@ export const initStorage = () => {
         }
         // 补充缓存移除的 otherData 字段
         stack.forEach(item => item.otherData = {})
-    
+
         return stack
     })()))
+    // 初始化页面位置
+    pagePosition = getItemUseSession(pagePositionKey)
+    if (pagePosition === null) pagePosition = -1
+
     // 初始化 historyStateID
     historyStateID = getItemUseSession(historyStateIDKey) || 1
+}
+
+const getPagePosition = (): Jafish_WatchRoute.PagePosition => pagePosition
+// 设置位置
+const setPagePosition = (relative: number) => {
+    pagePosition += relative
+    setItemUseSession(pagePositionKey, pagePosition)
+    return pagePosition
 }
 
 export const getHistoryStateID = (): Jafish_WatchRoute.HistoryStateID => historyStateID
@@ -61,7 +76,7 @@ export const useHistoryStateID = (): Jafish_WatchRoute.HistoryStateID => {
 // 前进路线则上限为20个
 const itemAmount: number = 20
 // 获取成员位置所在分组
-const getInCount = (index: number): number => Math.floor((index + 1) / itemAmount)
+const getInCount = (index: number): number => Math.floor(index / itemAmount)
 
 const getPageForwardData = (currentPage: Jafish_WatchRoute.PageStack): Jafish_WatchRoute.PageForward => {
     const { pathname, hash, search, data } = currentPage
@@ -132,7 +147,7 @@ const setPageStackCache = ({
     }
 }
 // 获取页面基本参数
-const getPageStackData = (data, isCurrent = false, url = ''): Jafish_WatchRoute.PageStack => {
+const getPageStackData = (data, url = ''): Jafish_WatchRoute.PageStack => {
     let { pathname, hash, search } = window.location
     // 传入url与实际不符，以传入为准
     if (url && (pathname.indexOf(url) === -1 && url.indexOf(pathname) === -1)) {
@@ -140,18 +155,18 @@ const getPageStackData = (data, isCurrent = false, url = ''): Jafish_WatchRoute.
         [search = '', hash = ''] = search.split('#');
     }
 
-    return { pathname, hash, search, data, isCurrent, otherData: {} }
+    return { pathname, hash, search, data, otherData: {} }
 }
 // 添加
 export const pushPageStack = (data, url?: string): void => {
-    const item = getPageStackData(data, true, url)
-    const index = pageStack.findIndex(item => item.isCurrent)
+    const item = getPageStackData(data, url)
+    const index = getPagePosition()
     const remove = index > -1 ? pageStack.splice(index + 1) : []
 
-    // 重置
-    pageStack.forEach(item => item.isCurrent = false)
     // 新增
     pageStack.push(item)
+    // 设置位置
+    setPagePosition(1)
     // 缓存
     setPageStackCache({ index: pageStack.length - 1, removeTail: remove.length })
     // 触发钩子
@@ -159,10 +174,10 @@ export const pushPageStack = (data, url?: string): void => {
 }
 // 重定向
 export const replacePageStack = (data, url: string): void => {
-    const item = getPageStackData(data, true, url)
-    const index = pageStack.findIndex(item => item.isCurrent)
+    const item = getPageStackData(data, url)
+    const index = getPagePosition()
 
-    // 替换
+    // 替换，位置不变
     pageStack.splice(index, 1, item)
     // 缓存
     setPageStackCache({ index: index })
@@ -172,18 +187,14 @@ export const replacePageStack = (data, url: string): void => {
 // 返回
 export const backPageStack = (): void => {
     updatePageStackCurrent(-1)
-    // 触发钩子
-    runRouteChangeHooks()
 }
 // 前进
 export const forwardPageStack = (): void => {
     updatePageStackCurrent(1)
-    // 触发钩子
-    runRouteChangeHooks()
 }
 // 修改当前页面所在位置
 export const updatePageStackCurrent = (relative: number = 0): void => {
-    const index = pageStack.findIndex(item => item.isCurrent)
+    const index = getPagePosition()
     let newIndex = index + relative
 
     // 范围限制
@@ -192,10 +203,8 @@ export const updatePageStackCurrent = (relative: number = 0): void => {
 
     if (index === newIndex) return
 
-    // 重置
-    pageStack.forEach(item => item.isCurrent = false)
     // 设置
-    pageStack[newIndex].isCurrent = true
+    setPagePosition(relative)
     // 所在分组
     const inCount = getInCount(index)
     const newInCount = getInCount(newIndex)
@@ -221,7 +230,7 @@ export const removePageStack = (start: number, end: number) => {
 }
 // 修改当前页面附加参数
 export const updatePageStackOtherData = (key: string, data: () => any): void => {
-    const index = pageStack.findIndex(item => item.isCurrent)
+    const index = getPagePosition()
     const { otherData } = pageStack[index]
 
     // 赋值
@@ -240,8 +249,8 @@ export const getPageForward = () => pageForward.slice()
 // 获取页面栈
 export const getPageStack = () => pageStack.slice()
 // 获取当前页面
-export const getCurrentPage = () => pageStack.find(item => item.isCurrent)
-export const getCurrentIndex = () => pageStack.findIndex(item => item.isCurrent)
+export const getCurrentPage = () => pageStack[getPagePosition()]
+export const getCurrentIndex = getPagePosition
 // 获取当前页面数据
 export const getCurrentPageOtherData = (currentPage = getCurrentPage(), key?: string): any => {
     // 获取当前页面附带值最终结果
