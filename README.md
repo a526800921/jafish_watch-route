@@ -2,9 +2,13 @@
 
 [![npm](https://img.shields.io/npm/v/@jafish/watch-route)](https://www.npmjs.com/package/@jafish/watch-route)
 
-监听路由，因为是 主动 + 被动 监听，在特殊情况下会有误差
+监听路由，通过代理 history，以及记录路由信息进行匹配，可以做到底层的路由监听，以及页面级的数据存储，可用于埋点所需
+
+因代理了 history，故对 history 操作路由提供完全可靠支持，对 hash location 提供尽量可靠的支持
 
 ### 注意事项
+
+* 因为是 主动 + 被动 监听，在个别情况下会有误差
 
 * 从有 watch-route 的页面无刷新跳转到无 watch-route 的页面目前不做处理，这种情况目前只会在微服务框架下出现。 解决思路：页面栈为数组，页面 change 的时候根据页面跨越个数来做数组的填充，如 [A] -> 返回跨越2个页面 -> [B, null, A] ，然后在后续的跳转中补充占位的 null 或者移除，形成完整的页面栈
 
