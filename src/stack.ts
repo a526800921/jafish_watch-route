@@ -1,6 +1,6 @@
 /// <reference path="./index.d.ts" />
 
-import { getItemUseSession, setItemUseSession, removeItemUseSession } from '@jafish/utils'
+import { getItemUseSession, setItemUseSession, removeItemUseSession, urlParse } from '@jafish/utils'
 
 const createKey = (key: string): string => `watch-route/${key}`
 
@@ -8,6 +8,7 @@ const pageForwardKey: string = createKey('PAGE_FORWARD')
 const pageStackKey: string = createKey('PAGE_STACK')
 const pagePositionKey: string = createKey('PAGE_POSITION')
 const historyStateIDKey: string = createKey('HISTORY_STATE_ID')
+const pageIDKey: string = createKey('PAGE_ID')
 
 // 应该有个页面前进路线 
 // 该路线不包括当前页面
@@ -18,13 +19,11 @@ const pageStack: Jafish_WatchRoute.PageStack[] = []
 let pagePosition: Jafish_WatchRoute.PagePosition = -1
 // 以及用于记录的 history state 参数
 let historyStateID: Jafish_WatchRoute.HistoryStateID = 1
+// 页面id
+let pageID: Jafish_WatchRoute.PageID = 1
 
 // 初始化缓存，兼顾ssr
-let initStorageFlag: boolean = false
 export const initStorage = () => {
-    if (initStorageFlag) return
-    initStorageFlag = true
-
     // 初始化页面前进路线
     pageForward.push(...(getItemUseSession(pageForwardKey) || []))
     // 初始化页面栈
@@ -54,6 +53,9 @@ export const initStorage = () => {
 
     // 初始化 historyStateID
     historyStateID = getItemUseSession(historyStateIDKey) || 1
+
+    // 初始化 pageID
+    pageID = getItemUseSession(pageIDKey) || 1
 }
 
 const getPagePosition = (): Jafish_WatchRoute.PagePosition => pagePosition
@@ -72,6 +74,12 @@ export const useHistoryStateID = (): Jafish_WatchRoute.HistoryStateID => {
     return id
 }
 
+const usePageID = (): Jafish_WatchRoute.PageID => {
+    const id = pageID
+    setItemUseSession(pageIDKey, ++pageID)
+    return id
+}
+
 // 页面栈成员缓存会进行分组，每组成员个数定为20个
 // 前进路线则上限为20个
 const itemAmount: number = 20
@@ -79,9 +87,9 @@ const itemAmount: number = 20
 const getInCount = (index: number): number => Math.floor(index / itemAmount)
 
 const getPageForwardData = (currentPage: Jafish_WatchRoute.PageStack): Jafish_WatchRoute.PageForward => {
-    const { pathname, hash, search, data } = currentPage
+    const { id, pathname, hash, search, data } = currentPage
 
-    return { pathname, hash, search, data, otherData: getCurrentPageOtherData(currentPage) }
+    return { id, pathname, hash, search, data, otherData: getCurrentPageOtherData(currentPage) }
 }
 // 有添加 pageForward 的方法
 /** 
@@ -148,14 +156,17 @@ const setPageStackCache = ({
 }
 // 获取页面基本参数
 const getPageStackData = (data, url = ''): Jafish_WatchRoute.PageStack => {
-    let { pathname, hash, search } = window.location
-    // 传入url与实际不符，以传入为准
-    if (url && (pathname.indexOf(url) === -1 && url.indexOf(pathname) === -1)) {
-        [pathname, search = ''] = url.split('?');
-        [search = '', hash = ''] = search.split('#');
+    let { pathname, search, hash } = window.location
+
+    if (url) {
+        const parse = urlParse(url)
+
+        pathname = parse.pathname
+        search = parse.search
+        hash = parse.hash
     }
 
-    return { pathname, hash, search, data, otherData: {} }
+    return { id: usePageID(), pathname, hash, search, data, otherData: {} }
 }
 // 添加
 export const pushPageStack = (data, url?: string): void => {
@@ -229,9 +240,9 @@ export const removePageStack = (start: number, end: number) => {
     setPageStackCache({ index: start, removeTail: end - start - 1, refreshTail: true })
 }
 // 修改当前页面附加参数
-export const updatePageStackOtherData = (key: string, data: () => any): void => {
+export const updatePageStackOtherData = (key: string, data: () => any): Jafish_WatchRoute.PageID => {
     const index = getPagePosition()
-    const { otherData } = pageStack[index]
+    const { id, otherData } = pageStack[index]
 
     // 赋值
     otherData[key] = function () {
@@ -242,6 +253,15 @@ export const updatePageStackOtherData = (key: string, data: () => any): void => 
             return null
         }
     }
+
+    return id
+}
+// 删除页面附加参数
+export const removePageStackOtherData = (id: Jafish_WatchRoute.PageID, key: string): boolean => {
+    const find = pageStack.find(item => item.id === id)
+
+    if (find) return delete find.otherData[key]
+    else return false
 }
 
 // 获取前进路线

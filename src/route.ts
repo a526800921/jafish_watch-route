@@ -1,6 +1,6 @@
 /// <reference path="./index.d.ts" />
 
-import { isNumber, isUndefined } from '@jafish/utils'
+import { isNumber, isUndefined, urlParse } from '@jafish/utils'
 import {
     initStorage,
     addPageForward,
@@ -19,12 +19,32 @@ import {
 const isObject = obj => Object.prototype.toString.call(obj) === '[object Object]'
 const joinPath = (obj: Jafish_WatchRoute.JoinPathData): string => `${obj.pathname}${obj.search}${obj.hash}`
 const noHistoryStateID = (target: Jafish_WatchRoute.PageStack): boolean => isUndefined(target.data.historyStateID)
+// 将传入的url转化为实际的url
+const fillUrl = (url: string): string => {
+    if (!url) return joinPath(window.location)
+    
+    const { pathname, search } = window.location
+    const parse = urlParse(url)
+
+    // pathname 不存在时
+    if (!parse.pathname) parse.pathname = pathname
+    // pathname 不以 / 开头时
+    else if (!(/^\//.test(parse.pathname))) parse.pathname = pathname.replace(/[^/]*$/, parse.pathname)
+    // 存在 hash 但不存在 search 时
+    if (parse.hash && !parse.search) parse.search = search
+
+    return joinPath(parse)
+}
 
 // 前进路线增加，并添加数据
 const addPageForwardUnify = () => addPageForward(getCurrentPage())
 
-// 监听初始化
+// 监听初始化，仅初始化一次
+let once: boolean = false
 export default function init() {
+    if (once) return
+    once = true
+
     // 初始化缓存
     initStorage()
 
@@ -38,7 +58,7 @@ export default function init() {
         // 前进路线增加
         addPageForwardUnify()
         // 页面栈后退
-        setTimeout(() => backPageStack(), 4)
+        backPageStack()
         // back 会触发 popstate
         stopPopstate = true
 
@@ -49,7 +69,7 @@ export default function init() {
         // 前进路线增加
         addPageForwardUnify()
         // 页面栈前进
-        setTimeout(() => forwardPageStack(), 4)
+        forwardPageStack()
         // forward 会触发 popstate
         stopPopstate = true
 
@@ -61,7 +81,7 @@ export default function init() {
             // 前进路线增加
             addPageForwardUnify()
             // 页面栈前进
-            setTimeout(() => updatePageStackCurrent(delta), 4)
+            updatePageStackCurrent(delta)
         }
         // go 会触发 popstate
         stopPopstate = true
@@ -77,13 +97,13 @@ export default function init() {
         const watchRouteID: number = useHistoryStateID()
         const newData: Jafish_WatchRoute.KV = isObject(data) ? { ...data, watchRouteID } : { data, watchRouteID }
         // 跳转完成后添加到页面栈
-        setTimeout(() => pushPageStack(
+        pushPageStack(
             {
                 from: 'history',
                 historyStateID: watchRouteID
             },
-            url
-        ), 4)
+            fillUrl(url)
+        )
 
         return pushState.apply(this, [newData, title, url, ...arg])
     }
@@ -96,13 +116,13 @@ export default function init() {
         const watchRouteID: number = useHistoryStateID()
         const newData: Jafish_WatchRoute.KV = isObject(data) ? { ...data, watchRouteID } : { data, watchRouteID }
         // 跳转完成后添加到页面栈
-        setTimeout(() => replacePageStack(
+        replacePageStack(
             {
                 from: 'history',
                 historyStateID: watchRouteID
             },
-            url
-        ), 4)
+            fillUrl(url)
+        )
 
         return replaceState.apply(this, [newData, title, url, ...arg])
     }

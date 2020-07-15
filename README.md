@@ -40,12 +40,15 @@ watchRoute.getPageStack()
 watchRoute.getCurrentPage()
 
 // 更新当前页面的 otherData
-watchRoute.updatePageStackOtherData('<onlyKey>', (): any => {
+const pageId = watchRoute.updatePageStackOtherData('<onlyKey>', (): any => {
 
     return {
         aaa: 1
     }
 })
+
+// 删除选中页面的 otherData
+watchRoute.removePageStackOtherData(pageId, '<onlyKey>')
 
 // 获取当前页面所有的 otherData
 watchRoute.getCurrentPageOtherData(getCurrentPage())

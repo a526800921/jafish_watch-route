@@ -12,6 +12,9 @@ declare namespace Jafish_WatchRoute {
     // history所用id
     type HistoryStateID = number
 
+    // 页面id
+    type PageID = number
+
     // data 参数
     interface PageData {
         from: string
@@ -20,6 +23,7 @@ declare namespace Jafish_WatchRoute {
     
     // 页面前进路线
     interface PageForward {
+        id: PageID
         pathname: string
         hash: string
         search: string
@@ -29,6 +33,7 @@ declare namespace Jafish_WatchRoute {
 
     // 页面栈
     interface PageStack {
+        id: PageID
         pathname: string
         hash: string
         search: string
