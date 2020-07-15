@@ -187,6 +187,9 @@ export default function init() {
             // 一般不会出现
             if (nextIndex === -1 || currentIndex === -1) return
 
+            // 刷新时不处理
+            if (nextIndex === currentIndex) return
+
             const currentPage = pageStack[currentIndex]
 
             // 前进路线增加
