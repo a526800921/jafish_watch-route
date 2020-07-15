@@ -22,7 +22,7 @@ const noHistoryStateID = (target: Jafish_WatchRoute.PageStack): boolean => isUnd
 // 将传入的url转化为实际的url
 const fillUrl = (url: string): string => {
     if (!url) return joinPath(window.location)
-    
+
     const { pathname, search } = window.location
     const parse = urlParse(url)
 
@@ -227,6 +227,10 @@ export default function init() {
 
                 // 这种情况一般不会存在
                 if (currentIndex === -1 || nextIndex === -1) return
+
+                // 刷新时不处理
+                if (nextIndex === currentIndex) return
+
                 // 前进路线增加
                 addPageForward(currentPage)
                 // 页面栈改变
